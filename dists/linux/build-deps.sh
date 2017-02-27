@@ -11,13 +11,19 @@ export PATH="$PREFIX/bin:$PATH"
 export LD_LIBRARY_PATH="$PREFIX/lib:$LD_LIBRARY_PATH"
 PKG_CONFIG_PATH="$PREFIX/lib/pkgconfig:$PKG_CONFIG_PATH"
 
+ARCH=`uname -m`
+X86=0
+if [ "$ARCH" == 'x86_64' ] || [ "$ARCH" == 'i386' ] || [ "$ARCH" == 'i686' ]; then
+	X86=1
+fi
+
 echo "Building dependencies"
 mkdir -pv "$PREFIX"
 
 # multicore compilation
 makearg="-j$(nproc)"
 
-rm -rf "$PREFIX"
+# rm -rf "$PREFIX"
 
 echo "Building libpng"
 cd "$SRC/libpng"
@@ -81,10 +87,15 @@ make $makearg
 make install
 make distclean
 
+if [ "$X86" -eq "1" ]; then
+	mmx="--enable-mmx"
+else
+	mmx="--disable-mmx"
+fi
 echo "Building SDL2_gfx"
 cd "$SRC/SDL2_gfx"
 bash ./autogen.sh
-./configure --prefix="$PREFIX" --with-sdl-prefix="$PREFIX" PKG_CONFIG_PATH="$PKG_CONFIG_PATH" --disable-static
+./configure --prefix="$PREFIX" --with-sdl-prefix="$PREFIX" PKG_CONFIG_PATH="$PKG_CONFIG_PATH" --disable-static --disable-sdltest $mmx
 make $makearg
 make install
 make distclean
@@ -110,13 +121,14 @@ make distclean
 #	make install
 #	make distclean
 
-echo "Building Yasm"
-cd "$SRC/yasm"
-./configure --prefix="$PREFIX" PKG_CONFIG_PATH="$PKG_CONFIG_PATH" --disable-static
-make $makearg
-make install
-make distclean
-
+if [ "$X86" -eq "1" ]; then
+	echo "Building Yasm"
+	cd "$SRC/yasm"
+	./configure --prefix="$PREFIX" PKG_CONFIG_PATH="$PKG_CONFIG_PATH" --disable-static
+	make $makearg
+	make install
+	make distclean
+fi
 
 echo "Building FFmpeg"
 cd "$SRC/ffmpeg"
@@ -144,7 +156,8 @@ cd "$SRC/ffmpeg"
 	--disable-protocols \
 	--disable-lzma \
 	--disable-bzlib \
-	--disable-vaapi
+	--disable-vaapi \
+	--enable-mmal --enable-hwaccel=h264_mmal --enable-neon
 make $makearg
 make install
 make distclean
